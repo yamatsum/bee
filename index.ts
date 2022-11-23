@@ -3,6 +3,21 @@ import {
   Command,
 } from "https://deno.land/x/cliffy@v0.25.4/command/mod.ts";
 import * as log from "https://deno.land/std/log/mod.ts";
+import { copySync } from "https://deno.land/std@0.87.0/fs/mod.ts";
+
+const _XDG_CONFIG_HOME = Deno.env.get("XDG_CONFIG_HOME");
+const _HOME = Deno.env.get("HOME");
+const _ICLOUD_DRIVE = _HOME + "/Library/Mobile Documents/com~apple~CloudDocs";
+const _CONFIG = _XDG_CONFIG_HOME + "/bee/config.json";
+
+type Application = {
+  name: string;
+  files?: File[];
+};
+
+type Config = {
+  applications: Application[];
+};
 
 async function getJson(filePath: string) {
   try {
@@ -14,8 +29,18 @@ async function getJson(filePath: string) {
 }
 
 const backup: ActionHandler = async (options, ...args) => {
-  const json = await getJson("/Users/yamatsum/.config/bee/config.jsona");
-  console.log(json);
+  const { applications }: Config = await getJson(_CONFIG);
+
+  applications.map((application) => {
+    // all config of application
+    if (!application.files) {
+      // cp ~/.config/hoge ~/iCloud/.config/hoge
+      copySync(
+        `${_XDG_CONFIG_HOME}/${application.name}`,
+        `${_ICLOUD_DRIVE}/.config/${application.name}`,
+      );
+    }
+  });
 };
 
 await new Command()
