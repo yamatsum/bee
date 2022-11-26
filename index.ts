@@ -4,7 +4,7 @@ import {
 } from "https://deno.land/x/cliffy@v0.25.4/command/mod.ts";
 import * as log from "https://deno.land/std/log/mod.ts";
 import { parse } from "https://deno.land/std@0.166.0/encoding/toml.ts";
-import { copySync } from "https://deno.land/std@0.87.0/fs/mod.ts";
+import { copySync, existsSync } from "https://deno.land/std@0.87.0/fs/mod.ts";
 
 const _XDG_CONFIG_HOME = Deno.env.get("XDG_CONFIG_HOME");
 const _HOME = Deno.env.get("HOME");
@@ -35,11 +35,30 @@ const backup: ActionHandler = async (options, ...args) => {
   applications.map((application) => {
     // all config of application
     if (!application.files) {
-      // cp ~/.config/hoge ~/iCloud/.config/hoge
-      copySync(
-        `${_XDG_CONFIG_HOME}/${application.name}`,
-        `${_ICLOUD_DRIVE}/.config/${application.name}`,
-      );
+      const _FROM = `${_XDG_CONFIG_HOME}/${application.name}`;
+      const _TO = `${_ICLOUD_DRIVE}/.config/${application.name}`;
+      // check exists
+      if (!existsSync(_FROM)) {
+        log.warning(`original file [${application.name}] is not exist`);
+        return;
+      }
+
+      if (existsSync(_TO)) {
+        log.warning(`copy file [${application.name}] already exists`);
+        return;
+      } else {
+        // cp ~/.config/hoge ~/iCloud/.config/hoge
+        copySync(_FROM, _TO);
+        log.info(`copy file [${application.name}]`);
+
+        // remove original file
+        Deno.removeSync(_FROM, { recursive: true });
+        log.info(`remove original file [${application.name}]`);
+
+        // symlink
+        Deno.symlink(_TO, _FROM);
+        log.info(`symlink [${application.name}]`);
+      }
     }
   });
 };
